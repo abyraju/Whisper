@@ -1,0 +1,8 @@
+# Rust build output
+target/
+
+# Android/Gradle build output
+.gradle/
+build/
+local.properties
+android/app/src/main/jniLibs/
