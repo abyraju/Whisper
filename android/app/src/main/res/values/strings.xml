@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">WhisperFlow Floating</string>
+    <string name="accessibility_service_description">WhisperFlow Floating Accessibility Service allows the floating dictation pill to automatically paste refined text directly into any focused text box.</string>
+</resources>
