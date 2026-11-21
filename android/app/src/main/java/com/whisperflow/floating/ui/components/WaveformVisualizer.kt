@@ -40,7 +40,7 @@ fun WaveformVisualizer(
     Row(
         modifier = modifier.height(28.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertAlignment
+        verticalAlignment = Alignment.CenterVertically
     ) {
         barMultipliers.forEach { mult ->
             val barFraction = (animatedLevel * mult).coerceIn(0.12f, 1.0f)

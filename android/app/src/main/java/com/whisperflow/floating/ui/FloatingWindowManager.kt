@@ -9,6 +9,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -80,10 +82,7 @@ class FloatingWindowManager(
             setViewTreeSavedStateRegistryOwner(this@FloatingWindowManager)
 
             setContent {
-                val state = androidx.compose.runtime.collectAsState(
-                    initial = uiStateFlow.value,
-                    context = kotlinx.coroutines.Dispatchers.Main
-                ).value
+                val state by uiStateFlow.collectAsState()
 
                 FloatingOverlayView(
                     state = state,
