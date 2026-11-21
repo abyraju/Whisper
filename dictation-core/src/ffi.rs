@@ -2,8 +2,8 @@
 
 use crate::coordinator::{DictationCoordinator, DictationEvent};
 use crate::models::{RefinerConfig, ZipformerConfig};
-use jni::objects::{JClass, JObject, JString};
-use jni::sys::{jfloat, jfloatArray, jlong, jstring};
+use jni::objects::{JClass, JFloatArray, JObject, JString};
+use jni::sys::jstring;
 use jni::JNIEnv;
 use std::sync::Mutex;
 
@@ -60,7 +60,7 @@ pub extern "system" fn Java_com_whisperflow_floating_native_NativeDictationEngin
 pub extern "system" fn Java_com_whisperflow_floating_native_NativeDictationEngine_nativePushPcmData(
     mut env: JNIEnv,
     _class: JClass,
-    samples: jfloatArray,
+    samples: JFloatArray,
     listener: JObject,
 ) {
     let len = match env.get_array_length(&samples) {
