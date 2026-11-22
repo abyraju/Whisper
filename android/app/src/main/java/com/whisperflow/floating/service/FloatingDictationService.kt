@@ -87,7 +87,9 @@ class FloatingDictationService : Service(), DictationListener {
         }
 
         NativeDictationEngine.setListener(this)
-        NativeDictationEngine.initialize(filesDir.absolutePath)
+        val modelDir = java.io.File(filesDir, "models")
+        if (!modelDir.exists()) modelDir.mkdirs()
+        NativeDictationEngine.initialize(modelDir.absolutePath)
 
         windowManager = FloatingWindowManager(this, uiState) { action ->
             handleUserAction(action)
