@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Least-privilege accessibility configuration.
+  The service only needs to find the focused text field and insert text into it, so:
+   - it listens to a single event type (and ignores it),
+   - it does not request interactive-window access or gesture dispatch.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewFocused|typeViewClicked"
+    android:accessibilityEventTypes="typeViewFocused"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="false"
     android:description="@string/accessibility_service_description"

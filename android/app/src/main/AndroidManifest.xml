@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Audio & Mic Capture -->
+    <!-- Audio capture (microphone only while dictation is listening) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- Overlay & Foreground Service -->
+    <!-- Overlay & foreground service -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- This app is fully offline. Make sure no library can ever add network access. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@android:drawable/ic_btn_speak_now"
         android:label="WhisperFlow Floating"
         android:roundIcon="@android:drawable/ic_btn_speak_now"
@@ -34,6 +38,8 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Must be exported for the system to bind to it; the BIND permission restricts
+             binding to the system only. -->
         <service
             android:name=".injection.DictationAccessibilityService"
             android:enabled="true"

@@ -134,9 +134,13 @@ private fun ExpandedConsoleCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            // Header Row: Drag handle + Live Waveform + Close
+            // Header Row: Drag handle + Live Waveform + Close.
+            // This row is the drag area: grab it and move anywhere; drag down onto the red
+            // target at the bottom of the screen to close (handled by FloatingWindowManager).
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 32.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -156,13 +160,13 @@ private fun ExpandedConsoleCard(
 
                 IconButton(
                     onClick = { onAction(FloatingAction.ToggleExpanded) },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Collapse",
-                        tint = GlassColors.TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        tint = GlassColors.TextPrimary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -183,7 +187,7 @@ private fun ExpandedConsoleCard(
                     Text(
                         text = if (state.isListening) "Listening..." else "Tap mic to speak",
                         color = GlassColors.TextSecondary,
-                        fontSize = 14.sp
+                        fontSize = 16.sp
                     )
                 } else {
                     Column {
@@ -191,8 +195,8 @@ private fun ExpandedConsoleCard(
                             Text(
                                 text = state.fullTranscript,
                                 color = GlassColors.TextPrimary,
-                                fontSize = 15.sp,
-                                lineHeight = 20.sp,
+                                fontSize = 17.sp,
+                                lineHeight = 24.sp,
                                 fontWeight = FontWeight.Normal
                             )
                         }
@@ -200,7 +204,8 @@ private fun ExpandedConsoleCard(
                             Text(
                                 text = " ${state.draftText}",
                                 color = GlassColors.TextDraft,
-                                fontSize = 15.sp,
+                                fontSize = 17.sp,
+                                lineHeight = 24.sp,
                                 fontStyle = FontStyle.Italic
                             )
                         }

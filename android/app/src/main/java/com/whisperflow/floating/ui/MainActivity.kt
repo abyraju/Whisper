@@ -2,10 +2,12 @@ package com.whisperflow.floating.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -79,8 +81,18 @@ class MainActivity : ComponentActivity() {
                     startActivity(intent)
                 },
                 onLaunchService = {
-                    FloatingDictationService.start(this)
-                    finish() // Close settings screen to let user use the floating pill anywhere
+                    val hasMic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                        PackageManager.PERMISSION_GRANTED
+                    if (!hasMic || !Settings.canDrawOverlays(this)) {
+                        Toast.makeText(
+                            this,
+                            "Enable microphone access and \"Draw over other apps\" first",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        FloatingDictationService.start(this)
+                        finish() // Close settings screen to let user use the floating pill anywhere
+                    }
                 }
             )
         }

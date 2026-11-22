@@ -1,13 +1,17 @@
 package com.whisperflow.floating.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.whisperflow.floating.audio.AudioCaptureManager
 import com.whisperflow.floating.native.DictationListener
@@ -62,30 +66,61 @@ class FloatingDictationService : Service(), DictationListener {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+
+        // A foreground service must call startForeground() promptly, so do it first. It throws
+        // if a required permission (e.g. the microphone, on Android 14+) is missing.
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (_: Exception) {
+            stopSelf()
+            return
+        }
+
+        if (!hasRequiredPermissions()) {
+            Toast.makeText(
+                this,
+                "Enable microphone access and \"Draw over other apps\" first",
+                Toast.LENGTH_LONG
+            ).show()
+            stopSelf()
+            return
+        }
 
         NativeDictationEngine.setListener(this)
-        NativeDictationEngine.nativeInit(filesDir.absolutePath)
+        NativeDictationEngine.initialize(filesDir.absolutePath)
 
         windowManager = FloatingWindowManager(this, uiState) { action ->
             handleUserAction(action)
         }
-        windowManager?.show()
+        try {
+            windowManager?.show()
+        } catch (_: Exception) {
+            // e.g. the overlay permission was revoked while starting.
+            windowManager = null
+            stopSelf()
+        }
     }
+
+    private fun hasRequiredPermissions(): Boolean =
+        checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+            Settings.canDrawOverlays(this)
 
     private fun handleUserAction(action: FloatingAction) {
         when (action) {
             FloatingAction.ToggleListening -> {
-                val nextListening = !_uiState.value.isListening
-                _uiState.value = _uiState.value.copy(
-                    isListening = nextListening,
-                    isExpanded = nextListening || _uiState.value.fullTranscript.isNotEmpty()
-                )
-                if (nextListening) {
-                    audioCapture.startCapture(serviceScope)
+                val wantListening = !_uiState.value.isListening
+                if (wantListening) {
+                    if (!audioCapture.startCapture(serviceScope)) {
+                        Toast.makeText(this, "Couldn't start the microphone", Toast.LENGTH_SHORT).show()
+                        return
+                    }
                 } else {
                     audioCapture.stopCapture()
                 }
+                _uiState.value = _uiState.value.copy(
+                    isListening = wantListening,
+                    isExpanded = wantListening || _uiState.value.fullTranscript.isNotEmpty()
+                )
             }
             FloatingAction.ToggleExpanded -> {
                 _uiState.value = _uiState.value.copy(
@@ -93,7 +128,7 @@ class FloatingDictationService : Service(), DictationListener {
                 )
             }
             FloatingAction.Clear -> {
-                NativeDictationEngine.nativeClear()
+                NativeDictationEngine.clear()
                 _uiState.value = _uiState.value.copy(
                     draftText = "",
                     fullTranscript = ""
@@ -124,7 +159,13 @@ class FloatingDictationService : Service(), DictationListener {
     override fun onDestroy() {
         audioCapture.stopCapture()
         windowManager?.hide()
+        windowManager = null
         serviceJob.cancel()
+
+        // Release the engine (and the transcript it holds) and drop the listener so the
+        // singleton doesn't keep this destroyed service alive.
+        NativeDictationEngine.clearListener()
+        NativeDictationEngine.shutdown()
         super.onDestroy()
     }
 
