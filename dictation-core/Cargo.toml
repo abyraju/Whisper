@@ -30,3 +30,13 @@ parking_lot = "0.12"
 
 [dev-dependencies]
 tempfile = "3.10"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+# Keep overflow checks on: arithmetic on untrusted audio lengths must not wrap silently.
+overflow-checks = true
+# Must stay "unwind": the JNI layer relies on catch_unwind to contain panics.
+panic = "unwind"
