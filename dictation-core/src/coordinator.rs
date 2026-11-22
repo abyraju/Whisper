@@ -38,7 +38,7 @@ impl DictationCoordinator {
     pub fn new(zipformer_config: ZipformerConfig, refiner_config: RefinerConfig) -> Self {
         Self {
             audio_buffer: AudioRingBuffer::new(16000 * 30), // 30s rolling buffer
-            vad: VadDetector::new(750, 0.02),               // 750ms silence pause, 0.02 RMS
+            vad: VadDetector::new(700, 0.005),              // 700ms silence pause, 0.005 RMS (-46dB)
             zipformer: ZipformerStream::new(zipformer_config),
             refiner: MoonshineRefiner::new(refiner_config),
             accumulator: TranscriptAccumulator::new(),

@@ -1,10 +1,10 @@
 package com.whisperflow.floating.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,9 +54,7 @@ fun FloatingOverlayView(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier
-            .animateContentSize()
-            .padding(8.dp)
+        modifier = modifier.padding(6.dp)
     ) {
         if (!state.isExpanded) {
             // Compact Docked Pill
@@ -92,7 +91,12 @@ private fun DockedPill(
         modifier = Modifier
             .size(56.dp)
             .scale(scalePulse)
-            .clickable(onClick = onClick),
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
         cornerRadius = 28.dp
     ) {
         Box(
@@ -134,9 +138,7 @@ private fun ExpandedConsoleCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            // Header Row: Drag handle + Live Waveform + Close.
-            // This row is the drag area: grab it and move anywhere; drag down onto the red
-            // target at the bottom of the screen to close (handled by FloatingWindowManager).
+            // Header Row: Drag handle + Live Waveform + Close
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -236,7 +238,7 @@ private fun ExpandedConsoleCard(
                 // Mic toggle button
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(46.dp)
                         .clip(CircleShape)
                         .background(
                             if (state.isListening) GlassColors.AccentGradient else GlassColors.GlassBorderGradient
@@ -248,7 +250,7 @@ private fun ExpandedConsoleCard(
                         imageVector = if (state.isListening) Icons.Default.Mic else Icons.Default.MicOff,
                         contentDescription = "Toggle Mic",
                         tint = GlassColors.TextPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 

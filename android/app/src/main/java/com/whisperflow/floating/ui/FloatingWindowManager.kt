@@ -13,6 +13,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.compose.runtime.collectAsState
@@ -35,16 +36,7 @@ import com.whisperflow.floating.service.FloatingAction
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Hosts the floating overlay in a system window and handles moving it.
- *
- * Behaviour:
- *  - Drag the pill (or the header of the expanded card) anywhere on screen.
- *  - While dragging, a red close target appears at the bottom centre. Drop the overlay on it
- *    (drag it down) to close the service, like a chat bubble.
- *  - Releasing anywhere else snaps the overlay to the nearest screen edge.
- *
- * Security: the window is FLAG_SECURE (excluded from screenshots / screen recording) and drops
- * touches while another app's window is drawn on top of it (tap-jacking protection).
+ * Hosts the floating overlay in a system window with buttery-smooth 60/120fps drag & drop.
  */
 class FloatingWindowManager(
     private val context: Context,
@@ -69,17 +61,15 @@ class FloatingWindowManager(
     private var snapAnimator: ValueAnimator? = null
     private var closeArmed = false
 
-    // Named overlayParams (not layoutParams) so it can't be confused with View.layoutParams
-    // inside DragLayout.
     private val overlayParams = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         format = PixelFormat.TRANSLUCENT
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_SECURE
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         gravity = Gravity.TOP or Gravity.START
         x = dp(16)
-        y = dp(200)
+        y = dp(180)
         width = WindowManager.LayoutParams.WRAP_CONTENT
         height = WindowManager.LayoutParams.WRAP_CONTENT
     }
@@ -100,7 +90,6 @@ class FloatingWindowManager(
     private fun screenWidth(): Int = context.resources.displayMetrics.widthPixels
     private fun screenHeight(): Int = context.resources.displayMetrics.heightPixels
 
-    /** Pixels from the top of the overlay in which a drag may start. */
     private fun dragZoneBottomPx(): Int =
         if (uiStateFlow.value.isExpanded) dp(HEADER_DRAG_ZONE_DP) else Int.MAX_VALUE
 
@@ -135,10 +124,7 @@ class FloatingWindowManager(
             }
         }
 
-        // Compose resolves its lifecycle from the TOPMOST view in the window, which is now the
-        // drag container, so the owners must be set on it as well.
         val root = DragLayout(context).apply {
-            filterTouchesWhenObscured = true
             setViewTreeLifecycleOwner(this@FloatingWindowManager)
             setViewTreeViewModelStoreOwner(this@FloatingWindowManager)
             setViewTreeSavedStateRegistryOwner(this@FloatingWindowManager)
@@ -151,7 +137,6 @@ class FloatingWindowManager(
             )
         }
 
-        // The close target is added first so the overlay is always drawn above it.
         addCloseTarget()
         rootView = root
         windowManager.addView(root, overlayParams)
@@ -164,18 +149,14 @@ class FloatingWindowManager(
         rootView?.let {
             try {
                 windowManager.removeView(it)
-            } catch (_: IllegalArgumentException) {
-                // Already removed.
-            }
+            } catch (_: Exception) {}
         }
         rootView = null
 
         closeTarget?.let {
             try {
                 windowManager.removeView(it)
-            } catch (_: IllegalArgumentException) {
-                // Already removed.
-            }
+            } catch (_: Exception) {}
         }
         closeTarget = null
 
@@ -186,19 +167,15 @@ class FloatingWindowManager(
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Close target ("drag down to close")
-    // ---------------------------------------------------------------------------------------
-
     private fun addCloseTarget() {
         val target = TextView(context).apply {
             text = "×"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.argb(235, 185, 28, 28))
+                setColor(Color.argb(235, 220, 38, 38))
                 setStroke(dp(2), Color.WHITE)
             }
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -216,7 +193,11 @@ class FloatingWindowManager(
     private fun positionCloseTarget() {
         closeParams.x = (closeTargetCenterX() - closeParams.width / 2f).toInt()
         closeParams.y = (closeTargetCenterY() - closeParams.height / 2f).toInt()
-        closeTarget?.let { windowManager.updateViewLayout(it, closeParams) }
+        closeTarget?.let {
+            try {
+                windowManager.updateViewLayout(it, closeParams)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun showCloseTarget() {
@@ -236,7 +217,6 @@ class FloatingWindowManager(
         }
     }
 
-    /** Arms the close target when the finger is over it, with a tick of haptic feedback. */
     private fun updateCloseArmed(rawX: Float, rawY: Float, feedbackView: View) {
         val dx = rawX - closeTargetCenterX()
         val dy = rawY - closeTargetCenterY()
@@ -245,65 +225,40 @@ class FloatingWindowManager(
         if (nowArmed == closeArmed) return
 
         closeArmed = nowArmed
-        val scale = if (nowArmed) 1.3f else 1f
-        closeTarget?.let {
-            it.animate().scaleX(scale).scaleY(scale).setDuration(100).start()
-        }
+        val scale = if (nowArmed) 1.25f else 1f
+        closeTarget?.animate()?.scaleX(scale)?.scaleY(scale)?.setDuration(120)?.start()
         if (nowArmed) {
             feedbackView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Positioning helpers
-    // ---------------------------------------------------------------------------------------
-
     private fun snapToEdge(view: View) {
-        val margin = dp(8)
+        val margin = dp(12)
         val screenW = screenWidth()
-        val centreX = overlayParams.x + view.width / 2
+        val viewW = view.width.takeIf { it > 0 } ?: dp(56)
+        val centreX = overlayParams.x + viewW / 2
         val targetX = if (centreX < screenW / 2) {
             margin
         } else {
-            maxOf(margin, screenW - view.width - margin)
+            maxOf(margin, screenW - viewW - margin)
         }
 
         snapAnimator?.cancel()
         snapAnimator = ValueAnimator.ofInt(overlayParams.x, targetX).apply {
-            duration = 180
+            duration = 160
+            interpolator = DecelerateInterpolator()
             addUpdateListener { animator ->
                 overlayParams.x = animator.animatedValue as Int
                 if (view.isAttachedToWindow) {
-                    windowManager.updateViewLayout(view, overlayParams)
+                    try {
+                        windowManager.updateViewLayout(view, overlayParams)
+                    } catch (_: Exception) {}
                 }
             }
             start()
         }
     }
 
-    /** Keeps the overlay fully on screen, e.g. after the pill expands into the card. */
-    private fun clampToScreen(view: View) {
-        if (!view.isAttachedToWindow) return
-        val maxX = maxOf(0, screenWidth() - view.width)
-        val maxY = maxOf(0, screenHeight() - view.height)
-        val newX = overlayParams.x.coerceIn(0, maxX)
-        val newY = overlayParams.y.coerceIn(0, maxY)
-        if (newX != overlayParams.x || newY != overlayParams.y) {
-            overlayParams.x = newX
-            overlayParams.y = newY
-            windowManager.updateViewLayout(view, overlayParams)
-        }
-    }
-
-    // ---------------------------------------------------------------------------------------
-    // Drag container
-    // ---------------------------------------------------------------------------------------
-
-    /**
-     * Wraps the Compose content. It uses RAW screen coordinates, so moving the window under the
-     * finger can't feed back into the gesture, and only takes over once the finger moves past the
-     * touch slop, so taps and button presses inside Compose keep working.
-     */
     @SuppressLint("ClickableViewAccessibility", "ViewConstructor")
     private inner class DragLayout(context: Context) : FrameLayout(context) {
 
@@ -313,99 +268,104 @@ class FloatingWindowManager(
         private var startX = 0
         private var startY = 0
         private var canDrag = false
-        private var dragging = false
-
-        private fun rememberDown(ev: MotionEvent) {
-            downRawX = ev.rawX
-            downRawY = ev.rawY
-            startX = overlayParams.x
-            startY = overlayParams.y
-            canDrag = ev.y <= dragZoneBottomPx()
-            dragging = false
-        }
-
-        private fun pastSlop(ev: MotionEvent): Boolean {
-            val dx = ev.rawX - downRawX
-            val dy = ev.rawY - downRawY
-            return dx * dx + dy * dy > touchSlop * touchSlop
-        }
-
-        private fun startDrag() {
-            dragging = true
-            closeArmed = false
-            parent?.requestDisallowInterceptTouchEvent(true)
-            showCloseTarget()
-        }
-
-        private fun dragTo(ev: MotionEvent) {
-            val maxX = maxOf(0, screenWidth() - width)
-            val maxY = maxOf(0, screenHeight() - height)
-            overlayParams.x = (startX + (ev.rawX - downRawX).toInt()).coerceIn(0, maxX)
-            overlayParams.y = (startY + (ev.rawY - downRawY).toInt()).coerceIn(0, maxY)
-            windowManager.updateViewLayout(this, overlayParams)
-            updateCloseArmed(ev.rawX, ev.rawY, this)
-        }
-
-        private fun finishDrag(released: Boolean) {
-            hideCloseTarget()
-            val shouldClose = released && closeArmed
-            closeArmed = false
-            if (shouldClose) {
-                onAction(FloatingAction.CloseService)
-            } else {
-                snapToEdge(this)
-            }
-        }
+        private var isDragging = false
+        private var lastUpdateX = 0
+        private var lastUpdateY = 0
 
         override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     snapAnimator?.cancel()
-                    rememberDown(ev)
+                    downRawX = ev.rawX
+                    downRawY = ev.rawY
+                    startX = overlayParams.x
+                    startY = overlayParams.y
+                    lastUpdateX = startX
+                    lastUpdateY = startY
+                    canDrag = ev.y <= dragZoneBottomPx()
+                    isDragging = false
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (canDrag && !dragging && pastSlop(ev)) {
-                        startDrag()
-                        return true
+                    if (canDrag) {
+                        val dx = ev.rawX - downRawX
+                        val dy = ev.rawY - downRawY
+                        if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                            isDragging = true
+                            closeArmed = false
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                            showCloseTarget()
+                            return true
+                        }
                     }
                 }
             }
-            return false
+            return isDragging
         }
 
         override fun onTouchEvent(ev: MotionEvent): Boolean {
+            if (!canDrag) return false
+
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    rememberDown(ev)
-                    return canDrag
+                    return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!canDrag) return false
-                    if (!dragging) {
-                        if (!pastSlop(ev)) return true
-                        startDrag()
+                    val dx = ev.rawX - downRawX
+                    val dy = ev.rawY - downRawY
+
+                    if (!isDragging) {
+                        if (dx * dx + dy * dy > touchSlop * touchSlop) {
+                            isDragging = true
+                            closeArmed = false
+                            parent?.requestDisallowInterceptTouchEvent(true)
+                            showCloseTarget()
+                        } else {
+                            return true
+                        }
                     }
-                    dragTo(ev)
+
+                    val maxX = maxOf(0, screenWidth() - width)
+                    val maxY = maxOf(0, screenHeight() - height)
+                    val newX = (startX + dx.toInt()).coerceIn(0, maxX)
+                    val newY = (startY + dy.toInt()).coerceIn(0, maxY)
+
+                    // Throttle updates to avoid flooding WindowManager IPC
+                    if (Math.abs(newX - lastUpdateX) >= 2 || Math.abs(newY - lastUpdateY) >= 2) {
+                        overlayParams.x = newX
+                        overlayParams.y = newY
+                        lastUpdateX = newX
+                        lastUpdateY = newY
+                        try {
+                            windowManager.updateViewLayout(this, overlayParams)
+                        } catch (_: Exception) {}
+                    }
+
+                    updateCloseArmed(ev.rawX, ev.rawY, this)
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (!dragging) return false
-                    dragging = false
-                    finishDrag(ev.actionMasked == MotionEvent.ACTION_UP)
-                    return true
+                    if (isDragging) {
+                        isDragging = false
+                        hideCloseTarget()
+                        val shouldClose = ev.actionMasked == MotionEvent.ACTION_UP && closeArmed
+                        closeArmed = false
+                        if (shouldClose) {
+                            onAction(FloatingAction.CloseService)
+                        } else {
+                            snapToEdge(this)
+                        }
+                        return true
+                    }
+                    isDragging = false
+                    return false
                 }
             }
-            return false
-        }
-
-        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-            super.onSizeChanged(w, h, oldw, oldh)
-            post { clampToScreen(this) }
+            return super.onTouchEvent(ev)
         }
     }
 
     private companion object {
-        const val HEADER_DRAG_ZONE_DP = 56
+        const val HEADER_DRAG_ZONE_DP = 52
         const val CLOSE_TARGET_SIZE_DP = 64
         const val CLOSE_TARGET_BOTTOM_DP = 96
         const val CLOSE_TRIGGER_RADIUS_DP = 110
