@@ -14,8 +14,8 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.whisperflow.floating.audio.AudioCaptureManager
-import com.whisperflow.floating.native.DictationListener
-import com.whisperflow.floating.native.NativeDictationEngine
+import com.whisperflow.floating.speech.DictationListener
+import com.whisperflow.floating.speech.SpeechEngine
 import com.whisperflow.floating.ui.FloatingWindowManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 data class DictationUiState(
     val isListening: Boolean = false,
@@ -86,10 +87,8 @@ class FloatingDictationService : Service(), DictationListener {
             return
         }
 
-        NativeDictationEngine.setListener(this)
-        val modelDir = java.io.File(filesDir, "models")
-        if (!modelDir.exists()) modelDir.mkdirs()
-        NativeDictationEngine.initialize(modelDir.absolutePath)
+        SpeechEngine.setListener(this)
+        SpeechEngine.initialize(this)
 
         windowManager = FloatingWindowManager(this, uiState) { action ->
             handleUserAction(action)
@@ -130,7 +129,7 @@ class FloatingDictationService : Service(), DictationListener {
                 )
             }
             FloatingAction.Clear -> {
-                NativeDictationEngine.clear()
+                SpeechEngine.clear()
                 _uiState.value = _uiState.value.copy(
                     draftText = "",
                     fullTranscript = ""
@@ -143,19 +142,19 @@ class FloatingDictationService : Service(), DictationListener {
     }
 
     override fun onAudioLevel(levelDb: Float) {
-        _uiState.value = _uiState.value.copy(audioLevelDb = levelDb)
+        _uiState.update { it.copy(audioLevelDb = levelDb) }
     }
 
     override fun onDraftUpdated(draft: String) {
-        _uiState.value = _uiState.value.copy(draftText = draft)
+        _uiState.update { it.copy(draftText = draft) }
     }
 
     override fun onFullTranscriptUpdated(fullText: String) {
-        _uiState.value = _uiState.value.copy(fullTranscript = fullText)
+        _uiState.update { it.copy(fullTranscript = fullText) }
     }
 
     override fun onStateChanged(state: String) {
-        _uiState.value = _uiState.value.copy(engineState = state)
+        _uiState.update { it.copy(engineState = state) }
     }
 
     override fun onDestroy() {
@@ -166,8 +165,8 @@ class FloatingDictationService : Service(), DictationListener {
 
         // Release the engine (and the transcript it holds) and drop the listener so the
         // singleton doesn't keep this destroyed service alive.
-        NativeDictationEngine.clearListener()
-        NativeDictationEngine.shutdown()
+        SpeechEngine.clearListener()
+        SpeechEngine.shutdown()
         super.onDestroy()
     }
 

@@ -5,7 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
-import com.whisperflow.floating.native.NativeDictationEngine
+import com.whisperflow.floating.speech.SpeechEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,7 +82,7 @@ class AudioCaptureManager {
 
         audioRecord = record
         isRecording = true
-        NativeDictationEngine.startListening()
+        SpeechEngine.startListening()
 
         recordingJob = scope.launch(Dispatchers.IO) {
             val shortBuffer = ShortArray(1600) // 100ms chunks at 16kHz
@@ -99,7 +99,7 @@ class AudioCaptureManager {
                             floatBuffer[i] = shortBuffer[i] / 32768.0f
                         }
                         val chunk = if (readCount == floatBuffer.size) floatBuffer else floatBuffer.copyOf(readCount)
-                        NativeDictationEngine.pushPcmData(chunk)
+                        SpeechEngine.pushPcmData(chunk)
                     } else if (readCount < 0) {
                         consecutiveErrors++
                         Log.w(tag, "AudioRecord.read returned error: $readCount (count=$consecutiveErrors)")
@@ -135,6 +135,6 @@ class AudioCaptureManager {
         }
         audioRecord = null
 
-        NativeDictationEngine.pauseListening()
+        SpeechEngine.pauseListening()
     }
 }

@@ -42,6 +42,11 @@ android {
         jvmTarget = "17"
     }
 
+    // Model files are memory-mapped straight out of the APK, so they must not be compressed.
+    androidResources {
+        noCompress += listOf("onnx", "ort")
+    }
+
     buildFeatures {
         compose = true
     }

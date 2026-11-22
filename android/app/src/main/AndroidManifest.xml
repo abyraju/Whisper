@@ -11,8 +11,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Network access for initial speech model download on first start -->
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- This app is fully offline. Make sure no library can ever add network access. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 
     <application
         android:allowBackup="false"

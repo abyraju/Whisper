@@ -12,6 +12,19 @@ permissions:
   contents: read
 
 jobs:
+  # The Rust crate is no longer in the APK; keep it tested on its own.
+  rust-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test Rust core
+        working-directory: dictation-core
+        run: cargo test --locked
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -39,37 +52,9 @@ jobs:
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> $GITHUB_ENV
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android, x86_64-linux-android
-
-      - name: Install cargo-ndk
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-ndk
-
-      - name: Install cargo-audit
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-audit
-
-      # Checks dependencies against the RustSec advisory database. Reports problems without
-      # blocking the build, so a new advisory doesn't stop you producing an APK.
-      - name: Audit Rust dependencies
-        continue-on-error: true
-        working-directory: dictation-core
-        run: cargo audit
-
-      - name: Test Rust Core
-        working-directory: dictation-core
-        run: cargo test --locked
-
-      - name: Compile Rust Core for Android
-        run: |
-          cd dictation-core
-          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release
-          cargo ndk -t x86_64 -o ../android/app/src/main/jniLibs build --release
+      # Speech engine + models. Pinned by SHA-256 in the script, so a tampered download fails the build.
+      - name: Fetch speech engine and models
+        run: scripts/fetch_speech_assets.sh base
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

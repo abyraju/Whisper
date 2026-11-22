@@ -60,7 +60,7 @@ Features a **persistent glassmorphic floating overlay** backed by a high-perform
 │   │       └── java/com/whisperflow/floating/
 │   │           ├── audio/        # AudioRecord 16kHz capture manager
 │   │           ├── injection/    # Clipboard & Accessibility paste injector
-│   │           ├── native/       # JNI NativeDictationEngine interface
+│   │           ├── speech/       # On-device ASR: streaming draft + Moonshine polish
 │   │           ├── service/      # Foreground overlay service
 │   │           └── ui/           # Jetpack Compose glassmorphism & drag physics
 │   ├── build.gradle.kts

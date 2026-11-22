@@ -187,7 +187,11 @@ private fun ExpandedConsoleCard(
             ) {
                 if (state.fullTranscript.isEmpty() && state.draftText.isEmpty()) {
                     Text(
-                        text = if (state.isListening) "Listening..." else "Tap mic to speak",
+                        text = when {
+                            state.engineState.startsWith("Loading") || state.engineState.endsWith("unavailable") -> state.engineState
+                            state.isListening -> "Listening..."
+                            else -> "Tap mic to speak"
+                        },
                         color = GlassColors.TextSecondary,
                         fontSize = 16.sp
                     )

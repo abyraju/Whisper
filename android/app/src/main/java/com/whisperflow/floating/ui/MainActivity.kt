@@ -73,7 +73,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.whisperflow.floating.injection.DictationAccessibilityService
-import com.whisperflow.floating.model.ModelDownloader
 import com.whisperflow.floating.service.FloatingDictationService
 import com.whisperflow.floating.ui.components.GlassmorphicCard
 import com.whisperflow.floating.ui.theme.GlassColors
@@ -161,35 +160,11 @@ fun FunOnboardingScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var isModelReady by remember { mutableStateOf(ModelDownloader.isModelInstalled(context)) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableFloatStateOf(if (isModelReady) 1.0f else 0.0f) }
-    var downloadStatus by remember {
-        mutableStateOf(if (isModelReady) "✨ Neural speech engine ready!" else "Tap below to fetch speech models")
-    }
-
-    // Auto-trigger model download if permissions are partially or fully ready
-    LaunchedEffect(hasMic, hasOverlay) {
-        if (!isModelReady && !isDownloading && (hasMic || hasOverlay)) {
-            isDownloading = true
-            scope.launch {
-                ModelDownloader.downloadAndInstall(
-                    context = context,
-                    onProgress = { progress, status ->
-                        downloadProgress = progress
-                        downloadStatus = status
-                    },
-                    onSuccess = {
-                        isModelReady = true
-                        isDownloading = false
-                    },
-                    onError = {
-                        isDownloading = false
-                    }
-                )
-            }
-        }
-    }
+    // The speech models are bundled inside the app (see scripts/fetch_speech_assets.sh);
+    // nothing is downloaded at runtime and the app has no network permission.
+    val isModelReady = true
+    val downloadProgress = 1.0f
+    val downloadStatus = "Models are built in and run entirely on this phone"
 
     // Animated glow transition
     val infiniteTransition = rememberInfiniteTransition(label = "orb_anim")
@@ -316,7 +291,7 @@ fun FunOnboardingScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isModelReady) "Speech Engine Installed" else "Local Neural Models",
+                                    text = "On-device Speech Engine",
                                     color = GlassColors.TextPrimary,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -356,35 +331,6 @@ fun FunOnboardingScreen(
                             fontSize = 12.sp
                         )
 
-                        if (!isModelReady && !isDownloading) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Button(
-                                onClick = {
-                                    isDownloading = true
-                                    scope.launch {
-                                        ModelDownloader.downloadAndInstall(
-                                            context = context,
-                                            onProgress = { progress, status ->
-                                                downloadProgress = progress
-                                                downloadStatus = status
-                                            },
-                                            onSuccess = {
-                                                isModelReady = true
-                                                isDownloading = false
-                                            },
-                                            onError = {
-                                                isDownloading = false
-                                            }
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = GlassColors.AccentViolet)
-                            ) {
-                                Text(text = "Download Neural Models (~45MB)", fontSize = 13.sp)
-                            }
-                        }
                     }
                 }
 
